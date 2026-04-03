@@ -111,5 +111,5 @@ python Train.py
 UNKNOWN_THRESHOLD = 0.30  # Tăng nếu hay nhận sai, giảm nếu Unknown quá nhiều
 ```
 ## Dataset
-Project sử dụng **GTSRB — German Traffic Sign Recognition Benchmark** với 43 class biển báo.  
+Project sử dụng **GTSRB — German Traffic Sign Recognition Benchmark** với 42 class biển báo.  
 Thông tin chi tiết xem tại `Meta.csv` và thư mục `Meta/`.
