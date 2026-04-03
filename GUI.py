@@ -1,13 +1,3 @@
-"""
-GUI Nhận Diện Biển Báo Giao Thông
-===================================
-Cách chạy:
-    pip install tensorflow pillow numpy
-    python gui.py
-
-Yêu cầu: traffic_classifier.h5 và labels.json nằm cùng thư mục.
-"""
-
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 import threading
@@ -16,24 +6,16 @@ import numpy as np
 import os
 import json
 
-# ------------------------------------------------------------------ #
-#  LOAD LABELS                                                         #
-# ------------------------------------------------------------------ #
-
+#  LOAD LABELS                       
 def load_labels():
-    """Đọc labels.json, trả về dict {int: str}."""
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "labels.json")
     if not os.path.exists(path):
         return None
     with open(path, "r", encoding="utf-8") as f:
         raw = json.load(f)
-    # key trong JSON là string → chuyển sang int
     return {int(k): v for k, v in raw.items()}
 
-# ------------------------------------------------------------------ #
-#  LOAD MODEL                                                          #
-# ------------------------------------------------------------------ #
-
+#  LOAD MODEL 
 def load_model_once():
     try:
         from tensorflow.keras.models import load_model
@@ -44,21 +26,15 @@ def load_model_once():
     except Exception as e:
         return None, str(e)
 
-# ------------------------------------------------------------------ #
-#  PREDICT — trả về top 3                                              #
-# ------------------------------------------------------------------ #
-
+#  PREDICT — trả về top 3                                              
 def predict_top3(model, pil_image):
     img = pil_image.convert("RGB").resize((30, 30))
     arr = np.expand_dims(np.array(img, dtype=np.float32) / 255.0, axis=0)
-    preds  = model.predict(arr, verbose=0)[0]           # shape (43,)
-    top3   = np.argsort(preds)[::-1][:3]                # index 3 class cao nhất
+    preds = model.predict(arr, verbose=0)[0]
+    top3  = np.argsort(preds)[::-1][:3]
     return [(int(i), float(preds[i])) for i in top3]
 
-# ------------------------------------------------------------------ #
 #  GIAO DIỆN                                                           #
-# ------------------------------------------------------------------ #
-
 class App(tk.Tk):
 
     C_BG     = "#F4F4F1"
@@ -70,6 +46,8 @@ class App(tk.Tk):
     C_RED    = "#D85A30"
     C_GRAY   = "#888888"
     C_STATUS = "#E6E6E1"
+
+    UNKNOWN_THRESHOLD = 0.30   # < 30% → coi là unknown
 
     def __init__(self):
         super().__init__()
@@ -86,9 +64,8 @@ class App(tk.Tk):
         self._build_ui()
         self._load_model_async()
 
-    # ---------------------------------------------------------------- #
-    #  BUILD UI                                                          #
-    # ---------------------------------------------------------------- #
+    #  BUILD UI                                                          
+
 
     def _build_ui(self):
         # Header
@@ -142,7 +119,6 @@ class App(tk.Tk):
         self.top3_frame = tk.Frame(top3_wrap, bg=self.C_BG)
         self.top3_frame.pack(fill=tk.X, pady=(4, 0))
 
-        # Tạo sẵn 3 dòng top3
         self.top3_rows = []
         for _ in range(3):
             row = tk.Frame(self.top3_frame, bg=self.C_BG)
@@ -198,9 +174,9 @@ class App(tk.Tk):
                                     bg=self.C_STATUS, fg="#666", anchor=tk.W)
         self.status_lbl.pack(fill=tk.X, side=tk.BOTTOM, ipady=4)
 
-    # ---------------------------------------------------------------- #
-    #  LOGIC                                                             #
-    # ---------------------------------------------------------------- #
+
+    #  LOGIC                                                             
+
 
     def _load_model_async(self):
         def task():
@@ -261,7 +237,6 @@ class App(tk.Tk):
         threading.Thread(target=task, daemon=True).start()
 
     def _show_result(self, results):
-        # FIX: dừng progress bar trước
         self.progress.stop()
         self._toggle_buttons(False)
 
@@ -269,12 +244,38 @@ class App(tk.Tk):
             self._set_status("Không có kết quả.", error=True)
             return
 
-        # Top 1
         cid, conf = results[0]
+        pct = conf * 100
+
+        medals = ["🥇", "🥈", "🥉"]
+
+        # ── UNKNOWN: confidence quá thấp 
+        if conf < self.UNKNOWN_THRESHOLD:
+            self.sign_var.set("❓  Không nhận ra biển báo")
+            self.conf_var.set(
+                f"Độ tự tin quá thấp ({pct:.1f}%) — ảnh không phải biển báo giao thông"
+            )
+            self.conf_lbl.config(fg=self.C_RED)
+
+            for idx, (rank_lbl, name_lbl, conf_lbl) in enumerate(self.top3_rows):
+                if idx < len(results):
+                    c, p = results[idx]
+                    rank_lbl.config(text=medals[idx])
+                    name_lbl.config(text=self._get_name(c))
+                    conf_lbl.config(text=f"{p*100:.1f}%", fg=self.C_RED)
+                else:
+                    rank_lbl.config(text="")
+                    name_lbl.config(text="")
+                    conf_lbl.config(text="")
+
+            self._set_status("⚠️  Ảnh không được nhận diện là biển báo.", error=True)
+            return
+        # ── END UNKNOWN ───────────────────────────────────────────────
+
+        # Top 1 bình thường
         name = self._get_name(cid)
         self.sign_var.set(name)
 
-        pct = conf * 100
         if pct >= 70:
             color, icon = self.C_GREEN, "✅"
         elif pct >= 40:
@@ -286,7 +287,6 @@ class App(tk.Tk):
         self.conf_lbl.config(fg=color)
 
         # Top 3 rows
-        medals = ["🥇", "🥈", "🥉"]
         for idx, (rank_lbl, name_lbl, conf_lbl) in enumerate(self.top3_rows):
             if idx < len(results):
                 c, p = results[idx]
@@ -318,9 +318,9 @@ class App(tk.Tk):
         self.reset_btn.config(state=tk.DISABLED)
         self._set_status("Đã xoá.")
 
-    # ---------------------------------------------------------------- #
-    #  HELPERS                                                           #
-    # ---------------------------------------------------------------- #
+
+    #  HELPERS                                                           
+
 
     def _get_name(self, class_id: int) -> str:
         if self.class_names and class_id in self.class_names:
@@ -345,9 +345,6 @@ class App(tk.Tk):
     def _set_status(self, msg, error=False):
         self.status_lbl.config(text=f"  {msg}",
                                 fg=self.C_RED if error else "#555")
-
-
-# ------------------------------------------------------------------ #
 
 if __name__ == "__main__":
     app = App()

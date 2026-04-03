@@ -1,26 +1,9 @@
-"""
-Nhận Diện Biển Báo Giao Thông Bằng Camera
-==========================================
-Cách chạy:
-    pip install tensorflow pillow opencv-python numpy
-    python camera_detect.py
-
-Yêu cầu: file traffic_classifier.h5 nằm cùng thư mục với file này.
-
-Phím tắt khi cửa sổ camera đang mở:
-    Q  —  Thoát
-    S  —  Chụp và lưu ảnh hiện tại
-"""
-
 import cv2
 import numpy as np
 import os
 from tensorflow.keras.models import load_model
 
-# ------------------------------------------------------------------ #
-#  Cấu hình                                                            #
-# ------------------------------------------------------------------ #
-
+#  Cấu hình                                                            
 MODEL_PATH  = "traffic_classifier.h5"
 IMG_SIZE    = 30          # Kích thước model yêu cầu
 CONF_THRESH = 0.70        # Chỉ hiển thị kết quả nếu độ tự tin >= 70%
@@ -52,9 +35,9 @@ CLASS_NAMES = {
     42: "Het cam vuot xe >3.5T",
 }
 
-# ------------------------------------------------------------------ #
-#  Hàm dự đoán                                                         #
-# ------------------------------------------------------------------ #
+
+#  Hàm dự đoán                                                         
+
 
 def predict_frame(model, roi_bgr):
     """
@@ -120,10 +103,7 @@ def draw_overlay(frame, class_id, confidence, roi_x1, roi_y1, roi_x2, roi_y2):
 
     return frame
 
-
-# ------------------------------------------------------------------ #
-#  Vòng lặp chính                                                      #
-# ------------------------------------------------------------------ #
+#  Vòng lặp chính                   
 
 def main():
     # Load model
